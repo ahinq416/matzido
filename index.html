@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>건우's 맛지도</title>
-    <!-- 네이버 지도 API (클라이언트 ID 적용) -->
+    <!-- 네이버 지도 API -->
     <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=b5d5dmjvd1&modules=geocoder"></script>
     <style>
         :root {
@@ -17,7 +17,9 @@
 
         body {
             font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-            background-color: var(--bg-color);
+            /* PC 배경 사진 복구 */
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+            background-size: cover;
             color: var(--text-color);
             margin: 0;
             padding: 20px;
@@ -32,12 +34,11 @@
             background: var(--box-bg);
             padding: 20px;
             border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border-color);
             box-sizing: border-box;
         }
 
-        /* 모바일 최적화된 헤더 레이아웃 (겹침 방지) */
         .header {
             display: flex;
             flex-direction: column;
@@ -125,10 +126,12 @@
             background-color: #d62839;
         }
 
+        /* 맛집 리스트 영역 복구 */
         .restaurant-list {
             display: flex;
             flex-direction: column;
             gap: 15px;
+            margin-top: 20px;
         }
 
         .restaurant-card {
@@ -145,13 +148,14 @@
         .restaurant-thumb {
             width: 60px;
             height: 60px;
-            background: #eee;
+            background: #ffe6e6;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
-            color: #777;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: var(--primary-color);
             flex-shrink: 0;
             text-align: center;
         }
@@ -176,7 +180,7 @@
             width: 100%;
             height: 250px;
             border-radius: 10px;
-            margin-top: 15px;
+            margin-top: 20px;
             border: 1px solid #ddd;
         }
     </style>
@@ -184,7 +188,7 @@
 <body>
 
     <div class="container">
-        <!-- 헤더 영역 (아바타와 타이틀 정렬 수정) -->
+        <!-- 헤더 영역 -->
         <div class="header">
             <img src="gunwoo.png" alt="건우 프로필" class="profile-img">
             <h1>🍳 건우 `s 맛지도</h1>
@@ -232,12 +236,22 @@
             <button class="btn-submit" onclick="addRestaurant()">등록하기</button>
         </div>
 
-        <!-- 지도 및 리스트 영역 -->
+        <!-- 지도 영역 -->
         <div id="map"></div>
+
+        <!-- 맛집 리스트 영역 복구 -->
+        <div class="restaurant-list" id="restaurantList">
+            <div class="restaurant-card">
+                <div class="restaurant-thumb">한식</div>
+                <div class="restaurant-info">
+                    <h4>성수라 을지로점 ⭐ 4 (또 갈래요! 😆)</h4>
+                    <p>고기와 곱창김 추가 추천, 생막걸리는 덤</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // 기본 지도 초기화 예시 코드
         var mapOptions = {
             center: new naver.maps.LatLng(37.5666103, 126.9783882),
             zoom: 13
@@ -250,7 +264,7 @@
                 alert('가게 이름을 입력해주세요!');
                 return;
             }
-            alert('맛집 등록 기능 준비 중입니다!');
+            alert('맛집 등록 기능 연동 중입니다!');
         }
     </script>
 </body>
