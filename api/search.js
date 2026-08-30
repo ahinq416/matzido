@@ -1,6 +1,5 @@
 // 네이버 검색 API 중계소
 export default async function handler(req, res) {
-  // CORS 허용 설정
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
@@ -15,7 +14,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 최신 표준인 WHATWG URL API를 사용하여 쿼리 파라미터 추출 (경고 해결)
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const fullUrl = `${protocol}://${req.headers.host}${req.url}`;
     const parsedUrl = new URL(fullUrl);
@@ -25,14 +23,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '검색어(query)가 누락되었습니다.' });
     }
 
-    // 네이버 지역 검색 API 호출
-    const naverUrl = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=5`;
+    // 1. 네이버 클라우드 플랫폼(API HUB) 최신 지역 검색 주소로 변경
+    const naverUrl = `https://naverapihub.apigw.ntruss.com/search/v1/local?query=${encodeURIComponent(query)}&display=5`;
     
+    // 2. 네이버 클라우드 플랫폼 전용 최신 헤더 규격으로 변경
     const response = await fetch(naverUrl, {
       method: 'GET',
       headers: {
-        'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-        'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+        'X-NCP-APIGW-API-KEY-ID': process.env.NAVER_CLIENT_ID,
+        'X-NCP-APIGW-API-KEY': process.env.NAVER_CLIENT_SECRET,
       },
     });
 
