@@ -318,9 +318,14 @@ async function fetchRestaurants() {
     cardDiv.className = 'restaurant-card';
     
     const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.store_name)}`;
+    
+    // 이미지 썸네일용 고유 ID 생성
+    const thumbId = `thumb-${item.id}`;
 
     cardDiv.innerHTML = `
-      <div class="thumb">${item.food_category}</div>
+      <div class="thumb" id="${thumbId}" style="overflow:hidden; position:relative; background:#f5f5f5;">
+          <span style="font-size:10px; color:#aaa;">사진 검색중...</span>
+      </div>
       <div class="info">
           <div class="title-row">
               <span class="title" onclick="showMarker('${item.address}', '${item.store_name}')">${item.store_name}</span>
@@ -335,6 +340,29 @@ async function fetchRestaurants() {
       </div>
     `;
     restaurantList.appendChild(cardDiv);
+
+    // 네이버 이미지 검색 API 비동기 호출 (가게 이름 + ' 맛집' 으로 검색)
+    fetch(`/api/image?query=${encodeURIComponent(item.store_name + ' 맛집')}`)
+      .then(res => res.json())
+      .then(imgData => {
+        const thumbDiv = document.getElementById(thumbId);
+        if (imgData.items && imgData.items.length > 0) {
+          // 10장 중 랜덤 1장 픽
+          const randomIdx = Math.floor(Math.random() * imgData.items.length);
+          const imgUrl = imgData.items[randomIdx].thumbnail || imgData.items[randomIdx].link;
+          // 사진으로 교체
+          thumbDiv.innerHTML = `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover; display:block;">`;
+        } else {
+          // 사진이 없으면 음식 종류 텍스트로 되돌리기
+          thumbDiv.innerHTML = item.food_category;
+        }
+      })
+      .catch((error) => {
+         console.error('이미지 로드 실패:', error);
+         // 에러 나면 음식 종류 텍스트로 되돌리기
+         const thumbDiv = document.getElementById(thumbId);
+         if(thumbDiv) thumbDiv.innerHTML = item.food_category;
+      });
   });
 }
 
