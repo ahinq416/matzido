@@ -82,6 +82,8 @@ input[type="number"] { width: 60px; }
 input[type="password"] { width: 100px; }
 .btn-submit { background: #e52528; color: #fff; border: 1px solid #cc1818; padding: 6px 15px; font-weight: bold; cursor: pointer; border-radius: 3px; width: 100%; max-width: 120px; }
 .btn-submit:hover { background: #d41b1b; }
+.btn-search { background: #03c75a; color: #fff; border: 1px solid #02b350; padding: 5px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; }
+.btn-search:hover { background: #02b350; }
 .btn-roulette { background: #ff9900; color: #fff; border: 1px solid #cc7a00; padding: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 .main-content { display: flex; flex-wrap: wrap; gap: 20px; }
 .list-container { flex: 1; min-width: 280px; }
@@ -140,8 +142,24 @@ input[type="password"] { width: 100px; }
 <h3>[ 맛집 등록하기 ]</h3>
 <form id="reviewForm">
 <div class="form-row">
-<label>가게 이름</label> <input type="text" id="storeName" required>
+<label>가게 이름</label> 
+<input type="text" id="storeName" placeholder="상호명 입력 후 검색" required>
+<button type="button" class="btn-search" onclick="searchStoreApi()">주소검색</button>
 </div>
+
+<!-- 네이버 검색 결과 선택 드롭다운 -->
+<div class="form-row" id="searchResultRow" style="display:none;">
+<label>검색결과</label>
+<select id="searchResultSelect" style="flex:1;" onchange="selectStoreItem(this)">
+    <option value="">-- 가게를 선택하세요 --</option>
+</select>
+</div>
+
+<!-- 숨겨진 주소 및 좌표 필드 -->
+<input type="hidden" id="storeAddress">
+<input type="hidden" id="storeMapX">
+<input type="hidden" id="storeMapY">
+
 <div class="form-row">
 <label>음식 종류</label>
 <select id="foodCategory"><option>한식</option><option>일식</option><option>중식</option><option>양식</option><option>술집</option><option>버거</option></select>
@@ -193,6 +211,11 @@ const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
+let map; // 전역 지도 객체
+let markers = []; // 마커 관리 배열
+let searchResultsData = []; // 검색 결과 임시 저장
+
+// 시간 위젯
 function updateTimeWidget() {
   const now = new Date();
   const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -202,6 +225,7 @@ function updateTimeWidget() {
 setInterval(updateTimeWidget, 1000);
 updateTimeWidget();
 
+// 날씨 위젯
 async function fetchSeoulWeather() {
   try {
     const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.566&longitude=126.978&current_weather=true');
@@ -214,6 +238,59 @@ async function fetchSeoulWeather() {
 }
 fetchSeoulWeather();
 
+// 네이버 검색 API 호출 함수 (Vercel 서버리스 거쳐서 호출)
+async function searchStoreApi() {
+    const query = document.getElementById('storeName').value;
+    if (!query) {
+        alert('검색할 상호명을 입력해 주세요!');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+        const data = await response.json();
+
+        if (data.items && data.items.length > 0) {
+            searchResultsData = data.items;
+            const selectBox = document.getElementById('searchResultSelect');
+            selectBox.innerHTML = '<option value="">-- 원하시는 가게를 선택하세요 --</option>';
+
+            data.items.forEach((item, index) => {
+                // HTML 태그 제거 (네이버 API는 <b>태그</b>를 포함해서 줌)
+                const cleanTitle = item.title.replace(/<[^>]*>?/gm, '');
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = `${cleanTitle} (${item.roadAddress || item.address})`;
+                selectBox.appendChild(option);
+            });
+
+            document.getElementById('searchResultRow').style.display = 'flex';
+        } else {
+            alert('검색 결과가 없습니다.');
+        }
+    } catch (error) {
+        console.error('검색 에러:', error);
+        alert('검색 중 오류가 발생했습니다.');
+    }
+}
+
+// 검색된 목록 중 하나를 선택했을 때
+function selectStoreItem(selectElement) {
+    const index = selectElement.value;
+    if (index === "") return;
+
+    const selectedItem = searchResultsData[index];
+    const cleanTitle = selectedItem.title.replace(/<[^>]*>?/gm, '');
+
+    document.getElementById('storeName').value = cleanTitle;
+    document.getElementById('storeAddress').value = selectedItem.roadAddress || selectedItem.address;
+    
+    // 네이버 Local API 좌표(mapx, mapy는 KATECH 좌표계이거나 정수 형태이므로 변환 필요할 수 있음. 주소 geocode 활용이 가장 안전)
+    // 여기서는 주소 기반 geocoding을 태워서 지도에 마커를 즉시 띄워줌
+    showMarker(selectedItem.roadAddress || selectedItem.address, cleanTitle);
+}
+
+// 맛집 리스트 불러오기
 async function fetchRestaurants() {
   const restaurantList = document.getElementById('restaurantList');
   restaurantList.innerHTML = '<div style="text-align: center; padding: 20px;">데이터를 불러오는 중...</div>';
@@ -246,23 +323,22 @@ async function fetchRestaurants() {
       <div class="thumb">${item.food_category}</div>
       <div class="info">
           <div class="title-row">
-              <a href="${naverMapUrl}" target="_blank" class="title" style="text-decoration:none; color:#b30000;">${item.store_name}</a>
+              <span class="title" onclick="showMarker('${item.address}', '${item.store_name}')">${item.store_name}</span>
               <span class="category-tag">${item.food_category}</span>
               <span class="stars">★ ${item.star_rating}</span>
               <span style="font-size: 12px; background: #eef2f7; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">${item.visit_again || ''}</span>
               <button onclick="deleteCard('${item.id}', this)" style="margin-left: auto; background: #ffeeee; border: 1px solid #ff9999; color: #cc0000; font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 3px;">삭제</button>
           </div>
-          <div class="address-text">📍 등록된 맛집</div>
+          <div class="address-text">📍 ${item.address || '주소 정보 없음'}</div>
           <div class="review-text">${item.review_comment}</div>
-          <a href="${naverMapUrl}" target="_blank" class="map-link">▶ 지도 보기</a>
+          <a href="${naverMapUrl}" target="_blank" class="map-link">▶ 네이버 지도에서 보기</a>
       </div>
     `;
     restaurantList.appendChild(cardDiv);
   });
 }
 
-fetchRestaurants();
-
+// 맛집 삭제
 window.deleteCard = async function(id, buttonElement) {
   const passwordInput = prompt('삭제하려면 관리자 암호를 입력하세요:');
   
@@ -285,11 +361,13 @@ window.deleteCard = async function(id, buttonElement) {
   }
 };
 
+// 맛집 등록 폼 제출
 const reviewForm = document.getElementById('reviewForm');
 reviewForm.addEventListener('submit', async function(e) {
   e.preventDefault();
 
   const storeName = document.getElementById('storeName').value;
+  const storeAddress = document.getElementById('storeAddress').value;
   const foodCategory = document.getElementById('foodCategory').value;
   const starRating = document.getElementById('starRating').value;
   const reviewComment = document.getElementById('reviewComment').value;
@@ -301,11 +379,17 @@ reviewForm.addEventListener('submit', async function(e) {
     return;
   }
 
+  if (!storeAddress) {
+    alert('상호명을 검색하고 목록에서 가게를 선택해 주세요!');
+    return;
+  }
+
   const { data, error } = await supabaseClient
     .from('restaurants')
     .insert([
       {
         store_name: storeName,
+        address: storeAddress,
         food_category: foodCategory,
         star_rating: starRating,
         review_comment: reviewComment,
@@ -321,60 +405,68 @@ reviewForm.addEventListener('submit', async function(e) {
 
   alert('맛집이 성공적으로 DB에 등록되었습니다! 🎉');
   reviewForm.reset();
+  document.getElementById('searchResultRow').style.display = 'none';
   document.getElementById('starRating').value = '5.0';
   document.getElementById('adminPassword').value = '1234';
 
   fetchRestaurants();
 });
 
+// 지도 초기화
 window.addEventListener('DOMContentLoaded', function() {
     const mapOptions = {
         center: new naver.maps.LatLng(37.5666805, 126.9784147), 
         zoom: 15
     };
-    const map = new naver.maps.Map('map', mapOptions);
+    map = new naver.maps.Map('map', mapOptions);
+    fetchRestaurants();
 });
 
+// 주소를 받아 지도에 마커를 찍는 함수
 function showMarker(address, restaurantName) {
+    if (!address) {
+        alert('주소 정보가 없습니다!');
+        return;
+    }
+
     naver.maps.Service.geocode({
-        query: address // 데이터베이스에 등록된 맛집 주소
+        query: address 
     }, function(status, response) {
         if (status !== naver.maps.Service.Status.OK) {
-            return alert('주소를 좌표로 변환할 수 없어!');
+            return alert('주소를 좌표로 변환할 수 없습니다.');
         }
 
-        var result = response.v2, // 검색 결과
-            items = result.addresses; // 매칭된 주소 배열
+        var result = response.v2, 
+            items = result.addresses; 
 
         if (items.length === 0) {
-            return alert('정확한 주소를 찾지 못했어 형!');
+            return alert('정확한 주소를 찾지 못했습니다.');
         }
 
-        // 첫 번째 결과의 x(경도), y(위도) 값을 이용해 좌표 객체 생성
         var point = new naver.maps.Point(items[0].x, items[0].y);
 
-        // 1. 지도를 해당 가게 좌표 중심으로 이동시키기
         map.setCenter(point);
-        
-        // (선택) 지도 확대 레벨 줌인
         map.setZoom(17); 
 
-        // 2. 해당 좌표에 네이버 마커 찍기
+        // 기존 마커들 삭제
+        markers.forEach(m => m.setMap(null));
+        markers = [];
+
         var marker = new naver.maps.Marker({
             position: point,
             map: map
         });
+        markers.push(marker);
 
-        // 3. (옵션) 마커 위에 가게 이름 정보창 띄우기
         var infoWindow = new naver.maps.InfoWindow({
-            content: '<div style="padding:10px; font-weight:bold; font-size:14px;">' + restaurantName + '</div>',
+            content: '<div style="padding:5px 10px; font-weight:bold; font-size:12px; background:#fff; border:1px solid #e52528; border-radius:3px;">' + restaurantName + '</div>',
             borderWidth: 0,
             disableAnchor: true,
             backgroundColor: 'transparent'
         });
         infoWindow.open(map, marker);
     });
-}  
+} 
 </script>
 </body>
 </html>
