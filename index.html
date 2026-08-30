@@ -334,6 +334,47 @@ window.addEventListener('DOMContentLoaded', function() {
     };
     const map = new naver.maps.Map('map', mapOptions);
 });
+
+function showMarker(address, restaurantName) {
+    naver.maps.Service.geocode({
+        query: address // 데이터베이스에 등록된 맛집 주소
+    }, function(status, response) {
+        if (status !== naver.maps.Service.Status.OK) {
+            return alert('주소를 좌표로 변환할 수 없어!');
+        }
+
+        var result = response.v2, // 검색 결과
+            items = result.addresses; // 매칭된 주소 배열
+
+        if (items.length === 0) {
+            return alert('정확한 주소를 찾지 못했어 형!');
+        }
+
+        // 첫 번째 결과의 x(경도), y(위도) 값을 이용해 좌표 객체 생성
+        var point = new naver.maps.Point(items[0].x, items[0].y);
+
+        // 1. 지도를 해당 가게 좌표 중심으로 이동시키기
+        map.setCenter(point);
+        
+        // (선택) 지도 확대 레벨 줌인
+        map.setZoom(17); 
+
+        // 2. 해당 좌표에 네이버 마커 찍기
+        var marker = new naver.maps.Marker({
+            position: point,
+            map: map
+        });
+
+        // 3. (옵션) 마커 위에 가게 이름 정보창 띄우기
+        var infoWindow = new naver.maps.InfoWindow({
+            content: '<div style="padding:10px; font-weight:bold; font-size:14px;">' + restaurantName + '</div>',
+            borderWidth: 0,
+            disableAnchor: true,
+            backgroundColor: 'transparent'
+        });
+        infoWindow.open(map, marker);
+    });
+}  
 </script>
 </body>
 </html>
