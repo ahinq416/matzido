@@ -214,8 +214,7 @@ input[type="password"] { width: 100px; }
     </div>
     <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528;">MAP 위치보기</div>
     <div id="map" style="width:100%; height:280px; background-color: #ffe6e6;"></div>    
-    <!-- 돌림판 실행 함수 연결 -->
-    <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (슬롯머신)</button>
+    <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
 </div>
 <div class="list-container" id="restaurantList">
     <!-- 동적 렌더링 영역 -->
@@ -233,9 +232,11 @@ const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 let map; 
-let markers = []; 
+let allMarkers = {}; // 등록된 모든 맛집 마커 저장소
+let allInfoWindows = {}; // 모든 말풍선 저장소
+let tempMarkers = []; // 새 가게 등록 시 검색 미리보기 마커
 let searchResultsData = []; 
-let globalRestaurants = []; // 돌림판 추첨을 위해 DB 데이터를 담아둘 전역 변수
+let globalRestaurants = []; 
 
 // 시간 위젯
 function updateTimeWidget() {
@@ -295,7 +296,7 @@ async function searchStoreApi() {
     }
 }
 
-// 검색된 목록 중 하나를 선택
+// 검색된 목록 중 하나를 선택했을 때 임시 마커 띄우기
 function selectStoreItem(selectElement) {
     const index = selectElement.value;
     if (index === "") return;
@@ -306,8 +307,37 @@ function selectStoreItem(selectElement) {
     document.getElementById('storeName').value = cleanTitle;
     document.getElementById('storeAddress').value = selectedItem.roadAddress || selectedItem.address;
     
-    showMarker(selectedItem.roadAddress || selectedItem.address, cleanTitle);
+    // 미리보기 마커 표시 (기존 showMarker를 showTempMarker로 변경)
+    showTempMarker(selectedItem.roadAddress || selectedItem.address, cleanTitle);
 }
+
+// 등록 전 주소 검색 시 사용하는 '미리보기용' 마커
+function showTempMarker(address, restaurantName) {
+    if (!address) return alert('주소 정보가 없습니다!');
+
+    naver.maps.Service.geocode({ query: address }, function(status, response) {
+        if (status !== naver.maps.Service.Status.OK) return alert('주소를 좌표로 변환할 수 없습니다.');
+        var result = response.v2, items = result.addresses; 
+        if (items.length === 0) return alert('정확한 주소를 찾지 못했습니다.');
+
+        var point = new naver.maps.Point(items[0].x, items[0].y);
+        map.setCenter(point);
+        map.setZoom(17); 
+
+        // 기존 임시 마커 삭제
+        tempMarkers.forEach(m => m.setMap(null));
+        tempMarkers = [];
+
+        var marker = new naver.maps.Marker({ position: point, map: map });
+        tempMarkers.push(marker);
+
+        var infoWindow = new naver.maps.InfoWindow({
+            content: '<div style="padding:5px 10px; font-weight:bold; font-size:12px; background:#fff; border:1px solid #e52528; border-radius:3px;">' + restaurantName + ' (미리보기)</div>',
+            borderWidth: 0, disableAnchor: true, backgroundColor: 'transparent'
+        });
+        infoWindow.open(map, marker);
+    });
+} 
 
 // 맛집 리스트 불러오기
 async function fetchRestaurants() {
@@ -329,11 +359,10 @@ async function fetchRestaurants() {
 
   if (data.length === 0) {
     restaurantList.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">등록된 맛집이 없습니다. 첫 맛집을 등록해 보세요!</div>';
-    globalRestaurants = []; // 비어있음 갱신
+    globalRestaurants = [];
     return;
   }
 
-  // 로드된 데이터를 돌림판을 위해 전역 변수에 저장
   globalRestaurants = data;
 
   data.forEach(item => {
@@ -341,18 +370,16 @@ async function fetchRestaurants() {
     cardDiv.className = 'restaurant-card';
     
     const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.store_name)}`;
-    
     const thumbContent = item.image_url 
         ? `<img src="${item.image_url}" style="width:100%; height:100%; object-fit:cover; display:block;">` 
         : item.food_category;
 
     cardDiv.innerHTML = `
-      <div class="thumb">
-          ${thumbContent}
-      </div>
+      <div class="thumb">${thumbContent}</div>
       <div class="info">
           <div class="title-row">
-              <span class="title" onclick="showMarker('${item.address}', '${item.store_name}')">${item.store_name}</span>
+              <!-- 리스트 클릭 시 focusMarker 호출하도록 변경 -->
+              <span class="title" onclick="focusMarker('${item.id}')">${item.store_name}</span>
               <span class="category-tag">${item.food_category}</span>
               <span class="stars">★ ${item.star_rating}</span>
               <span style="font-size: 12px; background: #eef2f7; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">${item.visit_again || ''}</span>
@@ -365,28 +392,83 @@ async function fetchRestaurants() {
     `;
     restaurantList.appendChild(cardDiv);
   });
+
+  // DB 데이터를 기반으로 지도에 마커 한 번에 다 그리기!
+  drawAllMarkers(data);
 }
+
+// 모든 맛집 마커 한 번에 지도에 그리기 로직
+function drawAllMarkers(restaurants) {
+    // 1. 기존 영구 마커들 초기화
+    for (let key in allMarkers) {
+        allMarkers[key].setMap(null);
+    }
+    allMarkers = {};
+    allInfoWindows = {};
+
+    // 2. 전체 리스트 돌면서 마커 생성
+    restaurants.forEach(item => {
+        if (!item.address) return;
+        naver.maps.Service.geocode({ query: item.address }, function(status, response) {
+            if (status !== naver.maps.Service.Status.OK) return;
+            var result = response.v2, items = result.addresses; 
+            if (items.length === 0) return;
+
+            var point = new naver.maps.Point(items[0].x, items[0].y);
+            var marker = new naver.maps.Marker({ position: point, map: map });
+            
+            // 객체에 마커 저장 (나중에 클릭 시 찾기 위해)
+            allMarkers[item.id] = marker;
+
+            var infoWindow = new naver.maps.InfoWindow({
+                content: '<div style="padding:5px 10px; font-weight:bold; font-size:12px; background:#fff; border:1px solid #e52528; border-radius:3px;">' + item.store_name + '</div>',
+                borderWidth: 0, disableAnchor: true, backgroundColor: 'transparent'
+            });
+            allInfoWindows[item.id] = infoWindow;
+
+            // 지도에 떠 있는 마커를 직접 클릭했을 때 줌인 & 말풍선 띄우기
+            naver.maps.Event.addListener(marker, 'click', function() {
+                focusMarker(item.id);
+            });
+        });
+    });
+}
+
+// 특정 맛집으로 지도 시점 이동시키고 말풍선 띄우기 (리스트 제목이나 마커 클릭 시 실행)
+window.focusMarker = function(id) {
+    let marker = allMarkers[id];
+    let infoWindow = allInfoWindows[id];
+    
+    if (marker) {
+        map.setCenter(marker.getPosition());
+        map.setZoom(17);
+        
+        // 열려있는 모든 말풍선 닫기
+        for(let key in allInfoWindows) {
+            allInfoWindows[key].close();
+        }
+        
+        // 검색하다 남은 임시 미리보기 마커 지우기
+        tempMarkers.forEach(m => m.setMap(null));
+        
+        // 선택한 놈만 말풍선 오픈
+        infoWindow.open(map, marker);
+    }
+};
 
 // 맛집 삭제
 window.deleteCard = async function(id, buttonElement) {
   const passwordInput = prompt('삭제하려면 관리자 암호를 입력하세요:');
   
   if (passwordInput === '1234') {
-    const { error } = await supabaseClient
-      .from('restaurants')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      alert('삭제 중 오류가 발생했습니다: ' + error.message);
-      return;
-    }
-
+    const { error } = await supabaseClient.from('restaurants').delete().eq('id', id);
+    if (error) return alert('삭제 중 오류가 발생했습니다: ' + error.message);
+    
     const card = buttonElement.closest('.restaurant-card');
     card.remove();
     alert('맛집이 삭제되었습니다.');
     
-    // 삭제 후 돌림판 데이터 최신화를 위해 리스트 다시 로드
+    // 삭제 후 리스트 갱신 (마커도 새로 그려짐)
     fetchRestaurants();
   } else if (passwordInput !== null) {
     alert('암호가 틀렸습니다!');
@@ -407,15 +489,8 @@ reviewForm.addEventListener('submit', async function(e) {
   const adminPassword = document.getElementById('adminPassword').value;
   const submitBtn = document.getElementById('submitBtn');
 
-  if (adminPassword !== '1234') {
-    alert('관리자 암호가 틀렸습니다!');
-    return;
-  }
-
-  if (!storeAddress) {
-    alert('상호명을 검색하고 목록에서 가게를 선택해 주세요!');
-    return;
-  }
+  if (adminPassword !== '1234') return alert('관리자 암호가 틀렸습니다!');
+  if (!storeAddress) return alert('상호명을 검색하고 목록에서 가게를 선택해 주세요!');
 
   submitBtn.innerText = '사진 박제 중...';
   submitBtn.disabled = true;
@@ -434,18 +509,11 @@ reviewForm.addEventListener('submit', async function(e) {
 
   const { data, error } = await supabaseClient
     .from('restaurants')
-    .insert([
-      {
-        store_name: storeName,
-        address: storeAddress,
-        food_category: foodCategory,
-        star_rating: starRating,
-        review_comment: reviewComment,
-        visit_again: visitAgain,
+    .insert([{
+        store_name: storeName, address: storeAddress, food_category: foodCategory,
+        star_rating: starRating, review_comment: reviewComment, visit_again: visitAgain,
         image_url: fetchedImageUrl
-      }
-    ])
-    .select();
+    }]).select();
 
   if (error) {
     alert('등록 실패: ' + error.message);
@@ -462,45 +530,39 @@ reviewForm.addEventListener('submit', async function(e) {
   document.getElementById('adminPassword').value = ''; 
   submitBtn.innerText = '등록하기';
   submitBtn.disabled = false;
+  
+  // 등록 후 사용한 임시 마커 깔끔하게 정리
+  tempMarkers.forEach(m => m.setMap(null));
+  tempMarkers = [];
 
   fetchRestaurants();
 });
 
 // 돌림판(슬롯머신) 추첨 로직
-function startRoulette() {
-    if (globalRestaurants.length === 0) {
-        alert('등록된 맛집이 없습니다! 맛집을 먼저 하나라도 등록해 주세요.');
-        return;
-    }
+window.startRoulette = function() {
+    if (globalRestaurants.length === 0) return alert('등록된 맛집이 없습니다! 맛집을 먼저 하나라도 등록해 주세요.');
 
     const btn = document.querySelector('.btn-roulette');
     const originalText = '🎰 오늘 뭐 먹지? (돌림판)';
-    
-    // 버튼 중복 클릭 방지
     btn.disabled = true;
 
     let count = 0;
-    
-    // 0.1초마다 맛집 이름이 휘리릭 바뀌는 시각적 효과
     const spinInterval = setInterval(() => {
         const randomIdx = Math.floor(Math.random() * globalRestaurants.length);
         btn.innerText = `🎲 ${globalRestaurants[randomIdx].store_name} 🎲`;
         count++;
 
-        // 15번(약 1.5초) 돌고 나면 정지 후 결과 발표!
         if (count > 15) { 
             clearInterval(spinInterval);
             const finalWinner = globalRestaurants[randomIdx];
             
-            // 텍스트 원래대로 복구 및 버튼 활성화
             btn.innerText = originalText;
             btn.disabled = false;
             
-            // 빰빠밤 알림
             alert(`🎉 오늘 갈 곳은 여기다!\n\n👉 [ ${finalWinner.store_name} ]\n${finalWinner.food_category} 먹으러 가자!`);
             
-            // 당첨된 가게로 지도 시점 쫙! 자동 이동
-            showMarker(finalWinner.address, finalWinner.store_name);
+            // 당첨된 맛집 마커로 지도 줌인!
+            focusMarker(finalWinner.id);
         }
     }, 100);
 }
@@ -514,51 +576,6 @@ window.addEventListener('DOMContentLoaded', function() {
     map = new naver.maps.Map('map', mapOptions);
     fetchRestaurants();
 });
-
-// 주소를 받아 지도에 마커를 찍는 함수
-function showMarker(address, restaurantName) {
-    if (!address) {
-        alert('주소 정보가 없습니다!');
-        return;
-    }
-
-    naver.maps.Service.geocode({
-        query: address 
-    }, function(status, response) {
-        if (status !== naver.maps.Service.Status.OK) {
-            return alert('주소를 좌표로 변환할 수 없습니다.');
-        }
-
-        var result = response.v2, 
-            items = result.addresses; 
-
-        if (items.length === 0) {
-            return alert('정확한 주소를 찾지 못했습니다.');
-        }
-
-        var point = new naver.maps.Point(items[0].x, items[0].y);
-
-        map.setCenter(point);
-        map.setZoom(17); 
-
-        markers.forEach(m => m.setMap(null));
-        markers = [];
-
-        var marker = new naver.maps.Marker({
-            position: point,
-            map: map
-        });
-        markers.push(marker);
-
-        var infoWindow = new naver.maps.InfoWindow({
-            content: '<div style="padding:5px 10px; font-weight:bold; font-size:12px; background:#fff; border:1px solid #e52528; border-radius:3px;">' + restaurantName + '</div>',
-            borderWidth: 0,
-            disableAnchor: true,
-            backgroundColor: 'transparent'
-        });
-        infoWindow.open(map, marker);
-    });
-} 
 </script>
 </body>
 </html>
