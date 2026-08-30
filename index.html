@@ -97,7 +97,19 @@ input[type="password"] { width: 100px; }
 .address-text { color: #888; font-size: 12px; margin-top: 4px; }
 .review-text { color: #444; margin-top: 5px; line-height: 1.5; word-break: break-all; }
 .map-link { display: inline-block; margin-top: 6px; color: #b30000; font-size: 12px; cursor: pointer; font-weight: bold; text-decoration: underline; }
-.map-sidebar { width: 320px; border: 1px solid #ccc; background: #fafafa; padding: 10px; text-align: center; }
+
+/* 지도 고정 (PC 환경) */
+.map-sidebar { 
+  width: 320px; 
+  border: 1px solid #ccc; 
+  background: #fafafa; 
+  padding: 10px; 
+  text-align: center; 
+  position: sticky; 
+  top: 20px; 
+  align-self: flex-start; 
+  z-index: 10;
+}
 .widget-box { background: #fff; border: 1px solid #ccc; border-top: 3px solid #e52528; padding: 12px; margin-bottom: 15px; text-align: center; }
 .widget-time { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 6px; }
 .widget-temp { font-size: 13px; color: #2DB400; font-weight: bold; }
@@ -114,7 +126,16 @@ input[type="password"] { width: 100px; }
     height: 90px;
     margin-bottom: 12px;
   }
-  .map-sidebar { width: 100%; order: -1; margin-bottom: 20px; }
+  /* 지도 고정 (모바일 환경) */
+  .map-sidebar { 
+    width: 100%; 
+    order: -1; 
+    margin-bottom: 20px; 
+    position: sticky; 
+    top: 0; 
+    z-index: 100; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
   .form-row { flex-direction: column; align-items: flex-start; }
   .form-row label { margin-bottom: 4px; }
   input[type="text"] { width: 100%; }
@@ -181,6 +202,7 @@ input[type="password"] { width: 100px; }
     </select>
 </div>
 <div class="form-row" style="margin-top:10px; border-top: 1px dashed #f5c6c6; padding-top: 12px; flex-direction: row; align-items: center;">
+<!-- 비밀번호 자동입력 방지 (placeholder 적용) -->
 <label style="width: auto; margin-right: 10px;">관리자 암호</label> <input type="password" id="adminPassword" placeholder="암호 입력" required>
 <button type="submit" class="btn-submit" id="submitBtn" style="margin-left: auto;">등록하기</button>
 </div>
@@ -435,7 +457,9 @@ reviewForm.addEventListener('submit', async function(e) {
   reviewForm.reset();
   document.getElementById('searchResultRow').style.display = 'none';
   document.getElementById('starRating').value = '5.0';
-  document.getElementById('adminPassword').value = '';
+  
+  // 비밀번호 입력창 폼 전송 후에도 빈칸으로 유지
+  document.getElementById('adminPassword').value = ''; 
   submitBtn.innerText = '등록하기';
   submitBtn.disabled = false;
 
