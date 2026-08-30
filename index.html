@@ -84,7 +84,8 @@ input[type="password"] { width: 100px; }
 .btn-submit:hover { background: #d41b1b; }
 .btn-search { background: #03c75a; color: #fff; border: 1px solid #02b350; padding: 5px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; }
 .btn-search:hover { background: #02b350; }
-.btn-roulette { background: #ff9900; color: #fff; border: 1px solid #cc7a00; padding: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.btn-roulette { background: #ff9900; color: #fff; border: 1px solid #cc7a00; padding: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }
+.btn-roulette:hover { background: #e68a00; transform: scale(1.02); }
 .main-content { display: flex; flex-wrap: wrap; gap: 20px; }
 .list-container { flex: 1; min-width: 280px; }
 .restaurant-card { display: flex; border-bottom: 1px solid #eee; padding: 12px 0; gap: 12px; }
@@ -168,7 +169,6 @@ input[type="password"] { width: 100px; }
 <button type="button" class="btn-search" onclick="searchStoreApi()">검색</button>
 </div>
 
-<!-- 네이버 검색 결과 선택 드롭다운 -->
 <div class="form-row" id="searchResultRow" style="display:none;">
 <label>검색결과</label>
 <select id="searchResultSelect" style="flex:1;" onchange="selectStoreItem(this)">
@@ -176,7 +176,6 @@ input[type="password"] { width: 100px; }
 </select>
 </div>
 
-<!-- 숨겨진 주소 및 좌표 필드 -->
 <input type="hidden" id="storeAddress">
 <input type="hidden" id="storeMapX">
 <input type="hidden" id="storeMapY">
@@ -202,7 +201,6 @@ input[type="password"] { width: 100px; }
     </select>
 </div>
 <div class="form-row" style="margin-top:10px; border-top: 1px dashed #f5c6c6; padding-top: 12px; flex-direction: row; align-items: center;">
-<!-- 비밀번호 자동입력 방지 (placeholder 적용) -->
 <label style="width: auto; margin-right: 10px;">관리자 암호</label> <input type="password" id="adminPassword" placeholder="암호 입력" required>
 <button type="submit" class="btn-submit" id="submitBtn" style="margin-left: auto;">등록하기</button>
 </div>
@@ -216,7 +214,8 @@ input[type="password"] { width: 100px; }
     </div>
     <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528;">MAP 위치보기</div>
     <div id="map" style="width:100%; height:280px; background-color: #ffe6e6;"></div>    
-    <button class="btn-roulette" onclick="alert('데이터 연동 후 활성화될 돌림판 기능입니다!')">🎰 오늘 뭐 먹지? (돌림판)</button>
+    <!-- 돌림판 실행 함수 연결 -->
+    <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
 </div>
 <div class="list-container" id="restaurantList">
     <!-- 동적 렌더링 영역 -->
@@ -233,9 +232,10 @@ const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-let map; // 전역 지도 객체
-let markers = []; // 마커 관리 배열
-let searchResultsData = []; // 검색 결과 임시 저장
+let map; 
+let markers = []; 
+let searchResultsData = []; 
+let globalRestaurants = []; // 돌림판 추첨을 위해 DB 데이터를 담아둘 전역 변수
 
 // 시간 위젯
 function updateTimeWidget() {
@@ -309,7 +309,7 @@ function selectStoreItem(selectElement) {
     showMarker(selectedItem.roadAddress || selectedItem.address, cleanTitle);
 }
 
-// 맛집 리스트 불러오기 (DB에서 이미 박제된 이미지 URL을 사용!)
+// 맛집 리스트 불러오기
 async function fetchRestaurants() {
   const restaurantList = document.getElementById('restaurantList');
   restaurantList.innerHTML = '<div style="text-align: center; padding: 20px;">데이터를 불러오는 중...</div>';
@@ -329,8 +329,12 @@ async function fetchRestaurants() {
 
   if (data.length === 0) {
     restaurantList.innerHTML = '<div style="text-align: center; padding: 20px; color: #777;">등록된 맛집이 없습니다. 첫 맛집을 등록해 보세요!</div>';
+    globalRestaurants = []; // 비어있음 갱신
     return;
   }
+
+  // 로드된 데이터를 돌림판을 위해 전역 변수에 저장
+  globalRestaurants = data;
 
   data.forEach(item => {
     const cardDiv = document.createElement('div');
@@ -338,7 +342,6 @@ async function fetchRestaurants() {
     
     const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.store_name)}`;
     
-    // DB에 이미지가 있으면 띄우고, 없으면 예전처럼 카테고리 글자를 띄움
     const thumbContent = item.image_url 
         ? `<img src="${item.image_url}" style="width:100%; height:100%; object-fit:cover; display:block;">` 
         : item.food_category;
@@ -382,12 +385,15 @@ window.deleteCard = async function(id, buttonElement) {
     const card = buttonElement.closest('.restaurant-card');
     card.remove();
     alert('맛집이 삭제되었습니다.');
+    
+    // 삭제 후 돌림판 데이터 최신화를 위해 리스트 다시 로드
+    fetchRestaurants();
   } else if (passwordInput !== null) {
     alert('암호가 틀렸습니다!');
   }
 };
 
-// 맛집 등록 폼 제출 (여기서 1번만 이미지를 몰래 검색해서 DB에 박제함!)
+// 맛집 등록 폼 제출
 const reviewForm = document.getElementById('reviewForm');
 reviewForm.addEventListener('submit', async function(e) {
   e.preventDefault();
@@ -411,14 +417,12 @@ reviewForm.addEventListener('submit', async function(e) {
     return;
   }
 
-  // 로딩 상태 표시 (사용자가 두 번 누르지 못하게)
   submitBtn.innerText = '사진 박제 중...';
   submitBtn.disabled = true;
 
   let fetchedImageUrl = null;
 
   try {
-    // 1. 등록하기 누르는 순간 네이버에서 사진 1장을 몰래 검색해옴 (제일 정확도 높은 0번째 사진)
     const imgRes = await fetch(`/api/image?query=${encodeURIComponent(storeName + ' 맛집')}`);
     const imgData = await imgRes.json();
     if (imgData.items && imgData.items.length > 0) {
@@ -428,7 +432,6 @@ reviewForm.addEventListener('submit', async function(e) {
     console.error('이미지 박제 실패 (텍스트로 대체됩니다):', err);
   }
 
-  // 2. 검색해온 사진 URL을 통째로 Supabase에 저장!
   const { data, error } = await supabaseClient
     .from('restaurants')
     .insert([
@@ -439,7 +442,7 @@ reviewForm.addEventListener('submit', async function(e) {
         star_rating: starRating,
         review_comment: reviewComment,
         visit_again: visitAgain,
-        image_url: fetchedImageUrl // DB에 영구 박제!
+        image_url: fetchedImageUrl
       }
     ])
     .select();
@@ -453,18 +456,54 @@ reviewForm.addEventListener('submit', async function(e) {
 
   alert('맛집 정보와 사진이 완벽하게 박제되었습니다! 🎉');
   
-  // 폼 초기화 및 새로고침
   reviewForm.reset();
   document.getElementById('searchResultRow').style.display = 'none';
   document.getElementById('starRating').value = '5.0';
-  
-  // 비밀번호 입력창 폼 전송 후에도 빈칸으로 유지
   document.getElementById('adminPassword').value = ''; 
   submitBtn.innerText = '등록하기';
   submitBtn.disabled = false;
 
   fetchRestaurants();
 });
+
+// 돌림판(슬롯머신) 추첨 로직
+function startRoulette() {
+    if (globalRestaurants.length === 0) {
+        alert('등록된 맛집이 없습니다! 맛집을 먼저 하나라도 등록해 주세요.');
+        return;
+    }
+
+    const btn = document.querySelector('.btn-roulette');
+    const originalText = '🎰 오늘 뭐 먹지? (돌림판)';
+    
+    // 버튼 중복 클릭 방지
+    btn.disabled = true;
+
+    let count = 0;
+    
+    // 0.1초마다 맛집 이름이 휘리릭 바뀌는 시각적 효과
+    const spinInterval = setInterval(() => {
+        const randomIdx = Math.floor(Math.random() * globalRestaurants.length);
+        btn.innerText = `🎲 ${globalRestaurants[randomIdx].store_name} 🎲`;
+        count++;
+
+        // 15번(약 1.5초) 돌고 나면 정지 후 결과 발표!
+        if (count > 15) { 
+            clearInterval(spinInterval);
+            const finalWinner = globalRestaurants[randomIdx];
+            
+            // 텍스트 원래대로 복구 및 버튼 활성화
+            btn.innerText = originalText;
+            btn.disabled = false;
+            
+            // 빰빠밤 알림
+            alert(`🎉 오늘 갈 곳은 여기다!\n\n👉 [ ${finalWinner.store_name} ]\n${finalWinner.food_category} 먹으러 가자!`);
+            
+            // 당첨된 가게로 지도 시점 쫙! 자동 이동
+            showMarker(finalWinner.address, finalWinner.store_name);
+        }
+    }, 100);
+}
 
 // 지도 초기화
 window.addEventListener('DOMContentLoaded', function() {
