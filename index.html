@@ -86,6 +86,8 @@ input[type="password"] { width: 100px; }
 .btn-search:hover { background: #02b350; }
 .btn-roulette { background: #ff9900; color: #fff; border: 1px solid #cc7a00; padding: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s; }
 .btn-roulette:hover { background: #e68a00; transform: scale(1.02); }
+.btn-map-toggle { background: #e52528; color: #fff; border: none; padding: 10px; width: 100%; font-weight: bold; font-size: 14px; cursor: pointer; border-radius: 4px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s; }
+.btn-map-toggle:hover { background: #d41b1b; }
 .main-content { display: flex; flex-wrap: wrap; gap: 20px; }
 .list-container { flex: 1; min-width: 280px; }
 .restaurant-card { display: flex; border-bottom: 1px solid #eee; padding: 12px 0; gap: 12px; }
@@ -99,7 +101,7 @@ input[type="password"] { width: 100px; }
 .review-text { color: #444; margin-top: 5px; line-height: 1.5; word-break: break-all; }
 .map-link { display: inline-block; margin-top: 6px; color: #b30000; font-size: 12px; cursor: pointer; font-weight: bold; text-decoration: underline; }
 
-/* 지도 고정 (PC 환경) */
+/* 지도 사이드바 기본 (PC 환경) */
 .map-sidebar { 
   width: 320px; 
   border: 1px solid #ccc; 
@@ -110,8 +112,9 @@ input[type="password"] { width: 100px; }
   top: 20px; 
   align-self: flex-start; 
   z-index: 10;
+  border-top: 3px solid #e52528;
 }
-.widget-box { background: #fff; border: 1px solid #ccc; border-top: 3px solid #e52528; padding: 12px; margin-bottom: 15px; text-align: center; }
+.widget-box { background: #fff; border: 1px solid #ccc; padding: 12px; margin-bottom: 15px; text-align: center; }
 .widget-time { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 6px; }
 .widget-temp { font-size: 13px; color: #2DB400; font-weight: bold; }
 
@@ -127,36 +130,14 @@ input[type="password"] { width: 100px; }
     height: 90px;
     margin-bottom: 12px;
   }
-  /* 지도가 하단에 고정되었을 때 리스트가 가려지지 않도록 여백 추가 */
-  .container {
-    padding-bottom: 350px; 
-  }
-  /* 지도 고정 (모바일 환경 - 하단) */
+  .container { padding-bottom: 20px; }
+  /* 모바일 환경에서는 지도가 위쪽으로 올라오도록 순서 변경 */
   .map-sidebar { 
     width: 100%; 
-    position: fixed; 
-    top: auto; /* 상단 고정 상속 해제 */
-    bottom: 0; 
-    left: 0;
-    margin: 0;
-    padding: 10px 15px;
-    z-index: 1000; 
-    box-shadow: 0 -4px 10px rgba(0,0,0,0.15);
-    border: none;
-    border-top: 3px solid #e52528;
-    background: #fff; /* 뒷 배경 비침 방지 */
-  }
-  /* 모바일 화면을 위해 지도 높이 살짝 축소 */
-  #map {
-    height: 180px !important;
-  }
-  .widget-box {
-    margin-bottom: 10px;
-    padding: 8px;
-  }
-  .btn-roulette {
-    margin-top: 10px;
-    padding: 8px;
+    order: -1; 
+    position: static; 
+    margin-bottom: 20px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
   .form-row { flex-direction: column; align-items: flex-start; }
   .form-row label { margin-bottom: 4px; }
@@ -168,7 +149,7 @@ input[type="password"] { width: 100px; }
 <body>
 <div class="container">
 <header class="top-banner">
-  <img src="gunwoo.png" alt="건우 아바타" class="banner-avatar">
+  <img src="gunwoo.png" alt="건우 아바타" class="banner-avatar" onerror="this.src='https://via.placeholder.com/130?text=Avatar'">
   <div class="banner-content">
     <h1>
       <svg width="34" height="34" viewBox="0 0 64 64" style="transform: rotate(-22deg); margin-right: 6px; margin-bottom: 4px;">
@@ -233,13 +214,19 @@ input[type="password"] { width: 100px; }
         <div id="currentTime" class="widget-time">시간을 불러오는 중...</div>
         <div id="currentTemp" class="widget-temp">온도 정보를 불러오는 중...</div>
     </div>
-    <!-- 제목 옆에 전체 마커 보기 버튼 추가 -->
-    <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528; display: flex; justify-content: space-between; align-items: center;">
-        MAP 위치보기
-        <button onclick="fetchRestaurants()" style="font-size: 11px; padding: 2px 6px; background: #fff; border: 1px solid #ccc; color: #333; cursor: pointer; border-radius: 3px;">전체 마커 보기</button>
+
+    <!-- 지도 토글 버튼 추가 -->
+    <button id="mapToggleBtn" class="btn-map-toggle" onclick="toggleMap()">🗺️ 지도 열기 ▼</button>
+    
+    <!-- 기본적으로 숨겨져 있는 지도 래퍼 -->
+    <div id="mapWrapper" style="display: none;">
+        <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528; display: flex; justify-content: space-between; align-items: center;">
+            MAP 위치보기
+            <button onclick="fetchRestaurants()" style="font-size: 11px; padding: 2px 6px; background: #fff; border: 1px solid #ccc; color: #333; cursor: pointer; border-radius: 3px;">전체 마커 보기</button>
+        </div>
+        <div id="map" style="width:100%; height:280px; background-color: #ffe6e6;"></div>    
+        <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
     </div>
-    <div id="map" style="width:100%; height:280px; background-color: #ffe6e6;"></div>    
-    <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
 </div>
 <div class="list-container" id="restaurantList">
     <!-- 동적 렌더링 영역 -->
@@ -332,7 +319,10 @@ function selectStoreItem(selectElement) {
     document.getElementById('storeName').value = cleanTitle;
     document.getElementById('storeAddress').value = selectedItem.roadAddress || selectedItem.address;
     
-    // 미리보기 마커 표시 (기존 showMarker를 showTempMarker로 변경)
+    // 지도가 닫혀있다면 강제로 열어주기 (미리보기 위해)
+    openMapForce();
+    
+    // 미리보기 마커 표시
     showTempMarker(selectedItem.roadAddress || selectedItem.address, cleanTitle);
 }
 
@@ -403,7 +393,6 @@ async function fetchRestaurants() {
       <div class="thumb">${thumbContent}</div>
       <div class="info">
           <div class="title-row">
-              <!-- 리스트 클릭 시 focusMarker 호출하도록 변경 -->
               <span class="title" onclick="focusMarker('${item.id}')">${item.store_name}</span>
               <span class="category-tag">${item.food_category}</span>
               <span class="stars">★ ${item.star_rating}</span>
@@ -418,20 +407,16 @@ async function fetchRestaurants() {
     restaurantList.appendChild(cardDiv);
   });
 
-  // DB 데이터를 기반으로 지도에 마커 한 번에 다 그리기!
   drawAllMarkers(data);
 }
 
-// 모든 맛집 마커 한 번에 지도에 그리기 로직
 function drawAllMarkers(restaurants) {
-    // 1. 기존 영구 마커들 초기화
     for (let key in allMarkers) {
         allMarkers[key].setMap(null);
     }
     allMarkers = {};
     allInfoWindows = {};
 
-    // 2. 전체 리스트 돌면서 마커 생성
     restaurants.forEach(item => {
         if (!item.address) return;
         naver.maps.Service.geocode({ query: item.address }, function(status, response) {
@@ -442,7 +427,6 @@ function drawAllMarkers(restaurants) {
             var point = new naver.maps.Point(items[0].x, items[0].y);
             var marker = new naver.maps.Marker({ position: point, map: map });
             
-            // 객체에 마커 저장 (나중에 클릭 시 찾기 위해)
             allMarkers[item.id] = marker;
 
             var infoWindow = new naver.maps.InfoWindow({
@@ -451,7 +435,6 @@ function drawAllMarkers(restaurants) {
             });
             allInfoWindows[item.id] = infoWindow;
 
-            // 지도에 떠 있는 마커를 직접 클릭했을 때 줌인 & 말풍선 띄우기
             naver.maps.Event.addListener(marker, 'click', function() {
                 focusMarker(item.id);
             });
@@ -459,8 +442,36 @@ function drawAllMarkers(restaurants) {
     });
 }
 
-// 특정 맛집으로 지도 시점 이동시키고 말풍선 띄우기 (리스트 제목이나 마커 클릭 시 실행)
+// 지도 강제 열기 (리스트 클릭 시)
+window.openMapForce = function() {
+    const wrapper = document.getElementById('mapWrapper');
+    const btn = document.getElementById('mapToggleBtn');
+    if (wrapper.style.display === 'none') {
+        wrapper.style.display = 'block';
+        btn.innerHTML = '🗺️ 지도 접기 ▲';
+        window.dispatchEvent(new Event('resize')); 
+    }
+};
+
+// 지도 열고 닫기 토글 버튼 기능
+window.toggleMap = function() {
+    const wrapper = document.getElementById('mapWrapper');
+    const btn = document.getElementById('mapToggleBtn');
+    if (wrapper.style.display === 'none') {
+        wrapper.style.display = 'block';
+        btn.innerHTML = '🗺️ 지도 접기 ▲';
+        // 숨겨져 있던 지도가 렌더링되면서 크기가 깨지는 걸 방지하기 위해 리사이즈 이벤트 발생
+        window.dispatchEvent(new Event('resize')); 
+    } else {
+        wrapper.style.display = 'none';
+        btn.innerHTML = '🗺️ 지도 열기 ▼';
+    }
+};
+
 window.focusMarker = function(id) {
+    // 지도 접혀있으면 열기
+    openMapForce();
+
     let marker = allMarkers[id];
     let infoWindow = allInfoWindows[id];
     
@@ -468,12 +479,11 @@ window.focusMarker = function(id) {
         map.setCenter(marker.getPosition());
         map.setZoom(17);
         
-        // 열려있는 모든 말풍선 닫기 & 나머지 마커들 숨기기
         for(let key in allMarkers) {
             if(key === id) {
-                allMarkers[key].setMap(map); // 클릭한 마커는 유지
+                allMarkers[key].setMap(map); 
             } else {
-                allMarkers[key].setMap(null); // 나머지는 숨김
+                allMarkers[key].setMap(null); 
             }
         }
 
@@ -481,15 +491,14 @@ window.focusMarker = function(id) {
             allInfoWindows[key].close();
         }
         
-        // 검색하다 남은 임시 미리보기 마커 지우기
         tempMarkers.forEach(m => m.setMap(null));
-        
-        // 선택한 놈만 말풍선 오픈
         infoWindow.open(map, marker);
+        
+        // 모바일 화면에서 지도로 스크롤 부드럽게 이동
+        document.querySelector('.map-sidebar').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 };
 
-// 맛집 삭제
 window.deleteCard = async function(id, buttonElement) {
   const passwordInput = prompt('삭제하려면 관리자 암호를 입력하세요:');
   
@@ -501,14 +510,12 @@ window.deleteCard = async function(id, buttonElement) {
     card.remove();
     alert('맛집이 삭제되었습니다.');
     
-    // 삭제 후 리스트 갱신 (마커도 새로 그려짐)
     fetchRestaurants();
   } else if (passwordInput !== null) {
     alert('암호가 틀렸습니다!');
   }
 };
 
-// 맛집 등록 폼 제출
 const reviewForm = document.getElementById('reviewForm');
 reviewForm.addEventListener('submit', async function(e) {
   e.preventDefault();
@@ -564,14 +571,12 @@ reviewForm.addEventListener('submit', async function(e) {
   submitBtn.innerText = '등록하기';
   submitBtn.disabled = false;
   
-  // 등록 후 사용한 임시 마커 깔끔하게 정리
   tempMarkers.forEach(m => m.setMap(null));
   tempMarkers = [];
 
   fetchRestaurants();
 });
 
-// 돌림판(슬롯머신) 추첨 로직
 window.startRoulette = function() {
     if (globalRestaurants.length === 0) return alert('등록된 맛집이 없습니다! 맛집을 먼저 하나라도 등록해 주세요.');
 
@@ -594,13 +599,11 @@ window.startRoulette = function() {
             
             alert(`🎉 오늘 갈 곳은 여기다!\n\n👉 [ ${finalWinner.store_name} ]\n${finalWinner.food_category} 먹으러 가자!`);
             
-            // 당첨된 맛집 마커로 지도 줌인!
             focusMarker(finalWinner.id);
         }
     }, 100);
 }
 
-// 지도 초기화
 window.addEventListener('DOMContentLoaded', function() {
     const mapOptions = {
         center: new naver.maps.LatLng(37.5666805, 126.9784147), 
