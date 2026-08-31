@@ -135,6 +135,7 @@ input[type="password"] { width: 100px; }
   .map-sidebar { 
     width: 100%; 
     position: fixed; 
+    top: auto; /* 상단 고정 상속 해제 */
     bottom: 0; 
     left: 0;
     margin: 0;
@@ -143,6 +144,7 @@ input[type="password"] { width: 100px; }
     box-shadow: 0 -4px 10px rgba(0,0,0,0.15);
     border: none;
     border-top: 3px solid #e52528;
+    background: #fff; /* 뒷 배경 비침 방지 */
   }
   /* 모바일 화면을 위해 지도 높이 살짝 축소 */
   #map {
@@ -231,6 +233,7 @@ input[type="password"] { width: 100px; }
         <div id="currentTime" class="widget-time">시간을 불러오는 중...</div>
         <div id="currentTemp" class="widget-temp">온도 정보를 불러오는 중...</div>
     </div>
+    <!-- 제목 옆에 전체 마커 보기 버튼 추가 -->
     <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528; display: flex; justify-content: space-between; align-items: center;">
         MAP 위치보기
         <button onclick="fetchRestaurants()" style="font-size: 11px; padding: 2px 6px; background: #fff; border: 1px solid #ccc; color: #333; cursor: pointer; border-radius: 3px;">전체 마커 보기</button>
@@ -239,7 +242,8 @@ input[type="password"] { width: 100px; }
     <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
 </div>
 <div class="list-container" id="restaurantList">
-    </div>
+    <!-- 동적 렌더링 영역 -->
+</div>
 </div>
 </div>
 
@@ -399,6 +403,7 @@ async function fetchRestaurants() {
       <div class="thumb">${thumbContent}</div>
       <div class="info">
           <div class="title-row">
+              <!-- 리스트 클릭 시 focusMarker 호출하도록 변경 -->
               <span class="title" onclick="focusMarker('${item.id}')">${item.store_name}</span>
               <span class="category-tag">${item.food_category}</span>
               <span class="stars">★ ${item.star_rating}</span>
