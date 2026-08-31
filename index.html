@@ -127,15 +127,34 @@ input[type="password"] { width: 100px; }
     height: 90px;
     margin-bottom: 12px;
   }
-  /* 지도 고정 (모바일 환경) */
+  /* 지도가 하단에 고정되었을 때 리스트가 가려지지 않도록 여백 추가 */
+  .container {
+    padding-bottom: 350px; 
+  }
+  /* 지도 고정 (모바일 환경 - 하단) */
   .map-sidebar { 
     width: 100%; 
-    order: -1; 
-    margin-bottom: 20px; 
-    position: sticky; 
-    top: 0; 
-    z-index: 100; 
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    position: fixed; 
+    bottom: 0; 
+    left: 0;
+    margin: 0;
+    padding: 10px 15px;
+    z-index: 1000; 
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.15);
+    border: none;
+    border-top: 3px solid #e52528;
+  }
+  /* 모바일 화면을 위해 지도 높이 살짝 축소 */
+  #map {
+    height: 180px !important;
+  }
+  .widget-box {
+    margin-bottom: 10px;
+    padding: 8px;
+  }
+  .btn-roulette {
+    margin-top: 10px;
+    padding: 8px;
   }
   .form-row { flex-direction: column; align-items: flex-start; }
   .form-row label { margin-bottom: 4px; }
@@ -212,7 +231,6 @@ input[type="password"] { width: 100px; }
         <div id="currentTime" class="widget-time">시간을 불러오는 중...</div>
         <div id="currentTemp" class="widget-temp">온도 정보를 불러오는 중...</div>
     </div>
-    <!-- 제목 옆에 전체 마커 보기 버튼 추가 -->
     <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528; display: flex; justify-content: space-between; align-items: center;">
         MAP 위치보기
         <button onclick="fetchRestaurants()" style="font-size: 11px; padding: 2px 6px; background: #fff; border: 1px solid #ccc; color: #333; cursor: pointer; border-radius: 3px;">전체 마커 보기</button>
@@ -221,8 +239,7 @@ input[type="password"] { width: 100px; }
     <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
 </div>
 <div class="list-container" id="restaurantList">
-    <!-- 동적 렌더링 영역 -->
-</div>
+    </div>
 </div>
 </div>
 
@@ -382,7 +399,6 @@ async function fetchRestaurants() {
       <div class="thumb">${thumbContent}</div>
       <div class="info">
           <div class="title-row">
-              <!-- 리스트 클릭 시 focusMarker 호출하도록 변경 -->
               <span class="title" onclick="focusMarker('${item.id}')">${item.store_name}</span>
               <span class="category-tag">${item.food_category}</span>
               <span class="stars">★ ${item.star_rating}</span>
