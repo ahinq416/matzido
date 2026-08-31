@@ -91,11 +91,11 @@ input[type="password"] { width: 100px; }
 .main-content { display: flex; flex-wrap: wrap; gap: 20px; }
 .list-container { flex: 1; min-width: 280px; }
 .restaurant-card { display: flex; border-bottom: 1px solid #eee; padding: 12px 0; gap: 12px; }
-.thumb { width: 70px; height: 70px; background: #eee; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; color: #888; font-size: 11px; flex-shrink: 0; overflow: hidden; position: relative; }
+.thumb { width: 70px; height: 70px; background: #eee; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; color: #888; font-size: 11px; flex-shrink: 0; overflow: hidden; position: relative; text-align: center; }
 .info { flex: 1; }
 .title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; }
 .title { font-size: 15px; font-weight: bold; color: #b30000; text-decoration: underline; cursor: pointer; }
-.category-tag { background: #feefef; border: 1px solid #fcc; color: #d32f2f; font-size: 11px; padding: 2px 5px; border-radius: 3px; }
+.category-tag { background: #f4ebff; border: 1px solid #d4b3ff; color: #6a1b9a; font-size: 11px; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
 .stars { color: #ff3838; font-weight: bold; }
 .address-text { color: #888; font-size: 12px; margin-top: 4px; }
 .review-text { color: #444; margin-top: 5px; line-height: 1.5; word-break: break-all; }
@@ -131,7 +131,6 @@ input[type="password"] { width: 100px; }
     margin-bottom: 12px;
   }
   .container { padding-bottom: 20px; }
-  /* 모바일 환경에서는 지도가 위쪽으로 올라오도록 순서 변경 */
   .map-sidebar { 
     width: 100%; 
     order: -1; 
@@ -182,9 +181,14 @@ input[type="password"] { width: 100px; }
 <input type="hidden" id="storeMapX">
 <input type="hidden" id="storeMapY">
 
+<!-- 음식 종류를 빼고 콜키지 옵션으로 변경 -->
 <div class="form-row">
-<label>음식 종류</label>
-<select id="foodCategory"><option>한식</option><option>일식</option><option>중식</option><option>양식</option><option>술집</option><option>버거</option></select>
+<label>콜키지</label>
+<select id="corkage">
+    <option value="">-- 선택 안함 --</option>
+    <option value="Y">Y (가능)</option>
+    <option value="N">N (불가능)</option>
+</select>
 </div>
 <div class="form-row">
 <label>별점 (1~5)</label>
@@ -215,10 +219,8 @@ input[type="password"] { width: 100px; }
         <div id="currentTemp" class="widget-temp">온도 정보를 불러오는 중...</div>
     </div>
 
-    <!-- 지도 토글 버튼 추가 -->
     <button id="mapToggleBtn" class="btn-map-toggle" onclick="toggleMap()">🗺️ 지도 열기 ▼</button>
     
-    <!-- 기본적으로 숨겨져 있는 지도 래퍼 -->
     <div id="mapWrapper" style="display: none;">
         <div style="font-weight:bold; margin-bottom:8px; text-align:left; color:#e52528; display: flex; justify-content: space-between; align-items: center;">
             MAP 위치보기
@@ -244,13 +246,12 @@ const SUPABASE_PUBLISHABLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 let map; 
-let allMarkers = {}; // 등록된 모든 맛집 마커 저장소
-let allInfoWindows = {}; // 모든 말풍선 저장소
-let tempMarkers = []; // 새 가게 등록 시 검색 미리보기 마커
+let allMarkers = {}; 
+let allInfoWindows = {}; 
+let tempMarkers = []; 
 let searchResultsData = []; 
 let globalRestaurants = []; 
 
-// 시간 위젯
 function updateTimeWidget() {
   const now = new Date();
   const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -260,7 +261,6 @@ function updateTimeWidget() {
 setInterval(updateTimeWidget, 1000);
 updateTimeWidget();
 
-// 날씨 위젯
 async function fetchSeoulWeather() {
   try {
     const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.566&longitude=126.978&current_weather=true');
@@ -273,7 +273,6 @@ async function fetchSeoulWeather() {
 }
 fetchSeoulWeather();
 
-// 네이버 지역 검색 API 호출
 async function searchStoreApi() {
     const query = document.getElementById('storeName').value;
     if (!query) {
@@ -308,7 +307,6 @@ async function searchStoreApi() {
     }
 }
 
-// 검색된 목록 중 하나를 선택했을 때 임시 마커 띄우기
 function selectStoreItem(selectElement) {
     const index = selectElement.value;
     if (index === "") return;
@@ -319,14 +317,10 @@ function selectStoreItem(selectElement) {
     document.getElementById('storeName').value = cleanTitle;
     document.getElementById('storeAddress').value = selectedItem.roadAddress || selectedItem.address;
     
-    // 지도가 닫혀있다면 강제로 열어주기 (미리보기 위해)
     openMapForce();
-    
-    // 미리보기 마커 표시
     showTempMarker(selectedItem.roadAddress || selectedItem.address, cleanTitle);
 }
 
-// 등록 전 주소 검색 시 사용하는 '미리보기용' 마커
 function showTempMarker(address, restaurantName) {
     if (!address) return alert('주소 정보가 없습니다!');
 
@@ -339,7 +333,6 @@ function showTempMarker(address, restaurantName) {
         map.setCenter(point);
         map.setZoom(17); 
 
-        // 기존 임시 마커 삭제
         tempMarkers.forEach(m => m.setMap(null));
         tempMarkers = [];
 
@@ -354,7 +347,6 @@ function showTempMarker(address, restaurantName) {
     });
 } 
 
-// 맛집 리스트 불러오기
 async function fetchRestaurants() {
   const restaurantList = document.getElementById('restaurantList');
   restaurantList.innerHTML = '<div style="text-align: center; padding: 20px;">데이터를 불러오는 중...</div>';
@@ -385,16 +377,21 @@ async function fetchRestaurants() {
     cardDiv.className = 'restaurant-card';
     
     const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.store_name)}`;
+    
+    // 음식 카테고리가 사라졌으므로, 이미지가 없을 때는 대체 텍스트 표시
     const thumbContent = item.image_url 
         ? `<img src="${item.image_url}" style="width:100%; height:100%; object-fit:cover; display:block;">` 
-        : item.food_category;
+        : '<span style="font-size:10px; color:#aaa;">이미지<br>없음</span>';
+
+    // 콜키지 값이 Y나 N일 때만 태그를 렌더링
+    const corkageTag = item.corkage ? `<span class="category-tag">🍷 콜키지: ${item.corkage}</span>` : '';
 
     cardDiv.innerHTML = `
       <div class="thumb">${thumbContent}</div>
       <div class="info">
           <div class="title-row">
               <span class="title" onclick="focusMarker('${item.id}')">${item.store_name}</span>
-              <span class="category-tag">${item.food_category}</span>
+              ${corkageTag}
               <span class="stars">★ ${item.star_rating}</span>
               <span style="font-size: 12px; background: #eef2f7; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">${item.visit_again || ''}</span>
               <button onclick="deleteCard('${item.id}', this)" style="margin-left: auto; background: #ffeeee; border: 1px solid #ff9999; color: #cc0000; font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 3px;">삭제</button>
@@ -442,7 +439,6 @@ function drawAllMarkers(restaurants) {
     });
 }
 
-// 지도 강제 열기 (리스트 클릭 시)
 window.openMapForce = function() {
     const wrapper = document.getElementById('mapWrapper');
     const btn = document.getElementById('mapToggleBtn');
@@ -453,14 +449,12 @@ window.openMapForce = function() {
     }
 };
 
-// 지도 열고 닫기 토글 버튼 기능
 window.toggleMap = function() {
     const wrapper = document.getElementById('mapWrapper');
     const btn = document.getElementById('mapToggleBtn');
     if (wrapper.style.display === 'none') {
         wrapper.style.display = 'block';
         btn.innerHTML = '🗺️ 지도 접기 ▲';
-        // 숨겨져 있던 지도가 렌더링되면서 크기가 깨지는 걸 방지하기 위해 리사이즈 이벤트 발생
         window.dispatchEvent(new Event('resize')); 
     } else {
         wrapper.style.display = 'none';
@@ -469,7 +463,6 @@ window.toggleMap = function() {
 };
 
 window.focusMarker = function(id) {
-    // 지도 접혀있으면 열기
     openMapForce();
 
     let marker = allMarkers[id];
@@ -494,7 +487,6 @@ window.focusMarker = function(id) {
         tempMarkers.forEach(m => m.setMap(null));
         infoWindow.open(map, marker);
         
-        // 모바일 화면에서 지도로 스크롤 부드럽게 이동
         document.querySelector('.map-sidebar').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 };
@@ -522,7 +514,7 @@ reviewForm.addEventListener('submit', async function(e) {
 
   const storeName = document.getElementById('storeName').value;
   const storeAddress = document.getElementById('storeAddress').value;
-  const foodCategory = document.getElementById('foodCategory').value;
+  const corkage = document.getElementById('corkage').value; // 새로 추가된 콜키지 값 가져오기
   const starRating = document.getElementById('starRating').value;
   const reviewComment = document.getElementById('reviewComment').value;
   const visitAgain = document.getElementById('visitAgain').value;
@@ -547,10 +539,11 @@ reviewForm.addEventListener('submit', async function(e) {
     console.error('이미지 박제 실패 (텍스트로 대체됩니다):', err);
   }
 
+  // Supabase에 데이터 인서트 시 corkage 항목 포함 (food_category 삭제)
   const { data, error } = await supabaseClient
     .from('restaurants')
     .insert([{
-        store_name: storeName, address: storeAddress, food_category: foodCategory,
+        store_name: storeName, address: storeAddress, corkage: corkage,
         star_rating: starRating, review_comment: reviewComment, visit_again: visitAgain,
         image_url: fetchedImageUrl
     }]).select();
@@ -597,7 +590,8 @@ window.startRoulette = function() {
             btn.innerText = originalText;
             btn.disabled = false;
             
-            alert(`🎉 오늘 갈 곳은 여기다!\n\n👉 [ ${finalWinner.store_name} ]\n${finalWinner.food_category} 먹으러 가자!`);
+            // 음식 카테고리 텍스트 대신 깔끔하게 메시지 변경
+            alert(`🎉 오늘 갈 곳은 여기다!\n\n👉 [ ${finalWinner.store_name} ]\n맛있게 먹고 오자!`);
             
             focusMarker(finalWinner.id);
         }
