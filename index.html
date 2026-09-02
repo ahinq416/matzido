@@ -98,7 +98,7 @@ input[type="password"] { width: 100px; }
 .category-tag { background: #f4ebff; border: 1px solid #d4b3ff; color: #6a1b9a; font-size: 11px; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
 .stars { color: #ff3838; font-weight: bold; font-size: 13px; }
 .address-text { color: #888; font-size: 12px; margin-top: 4px; margin-bottom: 6px;}
-.review-box { background: #f9f9f9; border-radius: 4px; padding: 6px 8px; margin-top: 4px; }
+.review-box { background: #f9f9f9; border-radius: 4px; padding: 6px 8px; margin-top: 4px; border-left: 3px solid #ccc; }
 .review-text { color: #444; margin-top: 2px; line-height: 1.4; word-break: break-all; font-size: 12px;}
 .map-link { display: inline-block; margin-top: 6px; color: #b30000; font-size: 12px; cursor: pointer; font-weight: bold; text-decoration: underline; }
 
@@ -163,7 +163,7 @@ input[type="password"] { width: 100px; }
   </div>
 </header>
 <div class="form-box">
-<h3>[ 맛집 등록하기 ]</h3>
+<h3>[ 맛집 평가 및 등록 ]</h3>
 <form id="reviewForm">
 <div class="form-row">
 <label>가게 이름</label> 
@@ -192,18 +192,13 @@ input[type="password"] { width: 100px; }
 </div>
 
 <div class="form-row" style="background: #fff; padding: 8px; border: 1px dashed #ccc; border-radius: 4px;">
-  <label style="color:#0056b3;">👨 건우 별점</label>
-  <input type="number" id="starRating" min="1.0" max="5.0" step="0.1" value="5.0" required style="margin-right: 15px;">
-  
-  <label style="color:#d81b60;">👩 H 별점</label>
-  <input type="number" id="starRating2" min="1.0" max="5.0" step="0.1" value="5.0" required>
+  <label style="color:#333;">내 별점</label>
+  <input type="number" id="myStarRating" min="1.0" max="5.0" step="0.1" value="5.0" required>
 </div>
 
 <div class="form-row">
-<label style="color:#0056b3;">👨 건우 리뷰</label> <input type="text" id="reviewComment" placeholder="건우의 한줄평" required>
-</div>
-<div class="form-row">
-<label style="color:#d81b60;">👩 H 리뷰</label> <input type="text" id="reviewComment2" placeholder="H의 한줄평" required>
+<label style="color:#333;">내 리뷰</label> 
+<input type="text" id="myReviewComment" placeholder="나만의 한줄평을 남겨주세요" required>
 </div>
 
 <div class="form-row">
@@ -216,10 +211,12 @@ input[type="password"] { width: 100px; }
     </select>
 </div>
 <div class="form-row" style="margin-top:10px; border-top: 1px dashed #f5c6c6; padding-top: 12px; flex-direction: row; align-items: center;">
-<label style="width: auto; margin-right: 10px;">관리자 암호</label> <input type="password" id="adminPassword" placeholder="암호 입력" required>
-<button type="submit" class="btn-submit" id="submitBtn" style="margin-left: auto;">등록하기</button>
+<label style="width: auto; margin-right: 10px; color:#d41b1b;">권한 암호</label> 
+<input type="password" id="adminPassword" placeholder="비번으로 작성자 자동 식별" required>
+<button type="submit" class="btn-submit" id="submitBtn" style="margin-left: auto;">등록 / 추가</button>
 </div>
 </form>
+<div style="font-size: 11px; color: #888; text-align: right; margin-top: 5px;">* 같은 식당은 암호에 따라 내용이 자동 추가됩니다.</div>
 </div>
 <div class="main-content">
 <div class="map-sidebar">
@@ -285,10 +282,7 @@ fetchSeoulWeather();
 
 async function searchStoreApi() {
     const query = document.getElementById('storeName').value;
-    if (!query) {
-        alert('검색할 상호명을 입력해 주세요!');
-        return;
-    }
+    if (!query) return alert('검색할 상호명을 입력해 주세요!');
 
     try {
         const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
@@ -335,9 +329,9 @@ function showTempMarker(address, restaurantName) {
     if (!address) return alert('주소 정보가 없습니다!');
 
     naver.maps.Service.geocode({ query: address }, function(status, response) {
-        if (status !== naver.maps.Service.Status.OK) return alert('주소를 좌표로 변환할 수 없습니다.');
+        if (status !== naver.maps.Service.Status.OK) return;
         var result = response.v2, items = result.addresses; 
-        if (items.length === 0) return alert('정확한 주소를 찾지 못했습니다.');
+        if (items.length === 0) return;
 
         var point = new naver.maps.Point(items[0].x, items[0].y);
         map.setCenter(point);
@@ -393,8 +387,11 @@ async function fetchRestaurants() {
 
     const corkageTag = item.corkage ? `<span class="category-tag">🍷 콜키지: ${item.corkage}</span>` : '';
     
-    // DB에서 등록자(registrar) 정보 가져와서 뱃지 띄워주기
-    const registrarBadge = item.registrar ? `<span style="font-size: 11px; background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: auto; margin-right: 5px;">등록: ${item.registrar}</span>` : '';
+    // DB의 데이터 상황에 따라 최초 등록자를 보여줌
+    let regName = item.registrar === 'h' ? 'h' : 'g';
+    if(item.star_rating && item.star_rating_2) regName = 'g & h 같이';
+
+    const registrarBadge = `<span style="font-size: 11px; background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: auto; margin-right: 5px;">등록: ${regName}</span>`;
 
     cardDiv.innerHTML = `
       <div class="thumb">${thumbContent}</div>
@@ -409,13 +406,13 @@ async function fetchRestaurants() {
           <div class="address-text">📍 ${item.address || '주소 정보 없음'}</div>
           
           <div class="stars">
-             <span style="color:#0056b3;">👨 건우 ★ ${item.star_rating}</span> &nbsp;|&nbsp; 
-             <span style="color:#d81b60;">👩 H ★ ${item.star_rating_2 || '평가전'}</span>
+             <span style="color:#0056b3;">👨 건우 ★ ${item.star_rating || '?'}</span> &nbsp;|&nbsp; 
+             <span style="color:#d81b60;">👩 파트너 ★ ${item.star_rating_2 || '?'}</span>
           </div>
           
           <div class="review-box">
-             <div class="review-text"><strong style="color:#0056b3;">👨 건우:</strong> ${item.review_comment}</div>
-             <div class="review-text"><strong style="color:#d81b60;">👩 H:</strong> ${item.review_comment_2 || '리뷰가 없습니다.'}</div>
+             <div class="review-text"><strong style="color:#0056b3;">👨 건우:</strong> ${item.review_comment || '<span style="color:#aaa;">아직 평가하지 않았습니다.</span>'}</div>
+             <div class="review-text"><strong style="color:#d81b60;">👩 파트너:</strong> ${item.review_comment_2 || '<span style="color:#aaa;">아직 평가하지 않았습니다.</span>'}</div>
           </div>
           
           <a href="${naverMapUrl}" target="_blank" class="map-link">▶ 네이버 지도에서 보기</a>
@@ -514,7 +511,6 @@ window.focusMarker = function(id) {
 window.deleteCard = async function(id, buttonElement) {
   const passwordInput = prompt('삭제하려면 권한 암호를 입력하세요 (g 또는 h의 암호):');
   
-  // 1234 또는 2345면 삭제 허용
   if (passwordInput === '1234' || passwordInput === '2345') {
     const { error } = await supabaseClient.from('restaurants').delete().eq('id', id);
     if (error) return alert('삭제 중 오류가 발생했습니다: ' + error.message);
@@ -522,7 +518,6 @@ window.deleteCard = async function(id, buttonElement) {
     const card = buttonElement.closest('.restaurant-card');
     card.remove();
     alert('맛집이 삭제되었습니다.');
-    
     fetchRestaurants();
   } else if (passwordInput !== null) {
     alert('암호가 틀렸습니다!');
@@ -535,71 +530,114 @@ reviewForm.addEventListener('submit', async function(e) {
 
   const adminPassword = document.getElementById('adminPassword').value;
   
-  // 비밀번호에 따른 등록자 판별
-  let currentRegistrar = '';
+  // 비밀번호로 작성자 판별
+  let currentUser = '';
   if (adminPassword === '1234') {
-      currentRegistrar = 'g';
+      currentUser = 'g';
   } else if (adminPassword === '2345') {
-      currentRegistrar = 'h';
+      currentUser = 'h';
   } else {
       return alert('등록 권한이 없습니다! (비밀번호 오류)');
   }
 
   const storeName = document.getElementById('storeName').value;
   const storeAddress = document.getElementById('storeAddress').value;
+  if (!storeAddress) return alert('상호명을 검색하고 목록에서 가게를 선택해 주세요!');
+
   const corkage = document.getElementById('corkage').value; 
-  
-  const starRating = document.getElementById('starRating').value;
-  const starRating2 = document.getElementById('starRating2').value;
-  const reviewComment = document.getElementById('reviewComment').value;
-  const reviewComment2 = document.getElementById('reviewComment2').value;
-  
+  const myStarRating = document.getElementById('myStarRating').value;
+  const myReviewComment = document.getElementById('myReviewComment').value;
   const visitAgain = document.getElementById('visitAgain').value;
   const submitBtn = document.getElementById('submitBtn');
 
-  if (!storeAddress) return alert('상호명을 검색하고 목록에서 가게를 선택해 주세요!');
-
-  submitBtn.innerText = '사진 박제 중...';
+  submitBtn.innerText = '처리 중...';
   submitBtn.disabled = true;
 
-  let fetchedImageUrl = null;
+  // DB에 이 주소의 식당이 이미 있는지 확인 (주소로 중복 검사)
+  const { data: existingData, error: searchError } = await supabaseClient
+      .from('restaurants')
+      .select('*')
+      .eq('address', storeAddress);
 
-  try {
-    const imgRes = await fetch(`/api/image?query=${encodeURIComponent(storeName + ' 맛집')}`);
-    const imgData = await imgRes.json();
-    if (imgData.items && imgData.items.length > 0) {
-      fetchedImageUrl = imgData.items[0].thumbnail || imgData.items[0].link;
-    }
-  } catch (err) {
-    console.error('이미지 박제 실패 (텍스트로 대체됩니다):', err);
+  if (searchError) {
+      alert('DB 확인 중 에러 발생');
+      submitBtn.innerText = '등록 / 추가';
+      submitBtn.disabled = false;
+      return;
   }
 
-  // Supabase에 데이터 인서트 시 registrar(등록자) 정보도 같이 보냄
-  const { data, error } = await supabaseClient
-    .from('restaurants')
-    .insert([{
-        store_name: storeName, address: storeAddress, corkage: corkage,
-        star_rating: starRating, star_rating_2: starRating2, 
-        review_comment: reviewComment, review_comment_2: reviewComment2, 
-        visit_again: visitAgain, image_url: fetchedImageUrl,
-        registrar: currentRegistrar
-    }]).select();
+  // 1. 이미 등록된 식당일 경우 (업데이트 로직)
+  if (existingData && existingData.length > 0) {
+      const targetId = existingData[0].id;
+      let updatePayload = {};
 
-  if (error) {
-    alert('등록 실패: ' + error.message);
-    submitBtn.innerText = '등록하기';
-    submitBtn.disabled = false;
-    return;
+      if (currentUser === 'g') {
+          updatePayload.star_rating = myStarRating;
+          updatePayload.review_comment = myReviewComment;
+      } else {
+          updatePayload.star_rating_2 = myStarRating;
+          updatePayload.review_comment_2 = myReviewComment;
+      }
+
+      // 평점 덧붙이기!
+      const { error: updateError } = await supabaseClient
+          .from('restaurants')
+          .update(updatePayload)
+          .eq('id', targetId);
+
+      if (updateError) {
+          alert('추가 실패: ' + updateError.message);
+      } else {
+          alert(`이미 등록된 식당입니다! ${currentUser}님의 평가가 추가되었습니다. 🎉`);
+      }
+  } 
+  // 2. 아예 처음 등록하는 식당일 경우 (인서트 로직)
+  else {
+      let fetchedImageUrl = null;
+      try {
+        const imgRes = await fetch(`/api/image?query=${encodeURIComponent(storeName + ' 맛집')}`);
+        const imgData = await imgRes.json();
+        if (imgData.items && imgData.items.length > 0) {
+          fetchedImageUrl = imgData.items[0].thumbnail || imgData.items[0].link;
+        }
+      } catch (err) {
+        console.error('이미지 박제 실패 (텍스트로 대체됩니다):', err);
+      }
+
+      let insertPayload = {
+          store_name: storeName, 
+          address: storeAddress, 
+          corkage: corkage,
+          visit_again: visitAgain, 
+          image_url: fetchedImageUrl,
+          registrar: currentUser
+      };
+
+      if (currentUser === 'g') {
+          insertPayload.star_rating = myStarRating;
+          insertPayload.review_comment = myReviewComment;
+      } else {
+          insertPayload.star_rating_2 = myStarRating;
+          insertPayload.review_comment_2 = myReviewComment;
+      }
+
+      const { error: insertError } = await supabaseClient
+        .from('restaurants')
+        .insert([insertPayload]);
+
+      if (insertError) {
+        alert('등록 실패: ' + insertError.message);
+      } else {
+        alert(`새 맛집 등록 완료! (등록자: ${currentUser}) 🎉`);
+      }
   }
-
-  alert(`맛집 정보와 2인 평가가 완벽하게 박제되었습니다! (등록자: ${currentRegistrar}) 🎉`);
   
+  // 폼 초기화 및 새로고침
   reviewForm.reset();
   document.getElementById('searchResultRow').style.display = 'none';
-  document.getElementById('starRating').value = '5.0';
-  document.getElementById('starRating2').value = '5.0';
+  document.getElementById('myStarRating').value = '5.0';
   document.getElementById('adminPassword').value = ''; 
-  submitBtn.innerText = '등록하기';
+  submitBtn.innerText = '등록 / 추가';
   submitBtn.disabled = false;
   
   tempMarkers.forEach(m => m.setMap(null));
