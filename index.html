@@ -195,7 +195,7 @@ input[type="password"] { width: 100px; }
   <label style="color:#0056b3;">👨 건우 별점</label>
   <input type="number" id="starRating" min="1.0" max="5.0" step="0.1" value="5.0" required style="margin-right: 15px;">
   
-  <label style="color:#d81b60;">👩 파트너 별점</label>
+  <label style="color:#d81b60;">👩 H 별점</label>
   <input type="number" id="starRating2" min="1.0" max="5.0" step="0.1" value="5.0" required>
 </div>
 
@@ -203,7 +203,7 @@ input[type="password"] { width: 100px; }
 <label style="color:#0056b3;">👨 건우 리뷰</label> <input type="text" id="reviewComment" placeholder="건우의 한줄평" required>
 </div>
 <div class="form-row">
-<label style="color:#d81b60;">👩 파트너 리뷰</label> <input type="text" id="reviewComment2" placeholder="파트너의 한줄평" required>
+<label style="color:#d81b60;">👩 H 리뷰</label> <input type="text" id="reviewComment2" placeholder="H의 한줄평" required>
 </div>
 
 <div class="form-row">
@@ -410,12 +410,12 @@ async function fetchRestaurants() {
           
           <div class="stars">
              <span style="color:#0056b3;">👨 건우 ★ ${item.star_rating}</span> &nbsp;|&nbsp; 
-             <span style="color:#d81b60;">👩 파트너 ★ ${item.star_rating_2 || '평가전'}</span>
+             <span style="color:#d81b60;">👩 H ★ ${item.star_rating_2 || '평가전'}</span>
           </div>
           
           <div class="review-box">
              <div class="review-text"><strong style="color:#0056b3;">👨 건우:</strong> ${item.review_comment}</div>
-             <div class="review-text"><strong style="color:#d81b60;">👩 파트너:</strong> ${item.review_comment_2 || '리뷰가 없습니다.'}</div>
+             <div class="review-text"><strong style="color:#d81b60;">👩 H:</strong> ${item.review_comment_2 || '리뷰가 없습니다.'}</div>
           </div>
           
           <a href="${naverMapUrl}" target="_blank" class="map-link">▶ 네이버 지도에서 보기</a>
