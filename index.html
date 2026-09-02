@@ -75,7 +75,7 @@ body {
 .form-box { background: #fdf5f5; border: 1px solid #f5c6c6; padding: 12px; margin-bottom: 20px; }
 .form-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #b30000; }
 .form-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
-.form-row label { width: 70px; font-weight: bold; color: #555; }
+.form-row label { width: 75px; font-weight: bold; color: #555; }
 input, select { border: 1px solid #ccc; padding: 5px; font-size: 13px; border-radius: 3px; }
 input[type="text"] { flex: 1; min-width: 150px; }
 input[type="number"] { width: 60px; }
@@ -96,9 +96,10 @@ input[type="password"] { width: 100px; }
 .title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; }
 .title { font-size: 15px; font-weight: bold; color: #b30000; text-decoration: underline; cursor: pointer; }
 .category-tag { background: #f4ebff; border: 1px solid #d4b3ff; color: #6a1b9a; font-size: 11px; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
-.stars { color: #ff3838; font-weight: bold; }
-.address-text { color: #888; font-size: 12px; margin-top: 4px; }
-.review-text { color: #444; margin-top: 5px; line-height: 1.5; word-break: break-all; }
+.stars { color: #ff3838; font-weight: bold; font-size: 13px; }
+.address-text { color: #888; font-size: 12px; margin-top: 4px; margin-bottom: 6px;}
+.review-box { background: #f9f9f9; border-radius: 4px; padding: 6px 8px; margin-top: 4px; }
+.review-text { color: #444; margin-top: 2px; line-height: 1.4; word-break: break-all; font-size: 12px;}
 .map-link { display: inline-block; margin-top: 6px; color: #b30000; font-size: 12px; cursor: pointer; font-weight: bold; text-decoration: underline; }
 
 /* 지도 사이드바 기본 (PC 환경) */
@@ -181,7 +182,6 @@ input[type="password"] { width: 100px; }
 <input type="hidden" id="storeMapX">
 <input type="hidden" id="storeMapY">
 
-<!-- 음식 종류를 빼고 콜키지 옵션으로 변경 -->
 <div class="form-row">
 <label>콜키지</label>
 <select id="corkage">
@@ -190,13 +190,22 @@ input[type="password"] { width: 100px; }
     <option value="N">N (불가능)</option>
 </select>
 </div>
+
+<div class="form-row" style="background: #fff; padding: 8px; border: 1px dashed #ccc; border-radius: 4px;">
+  <label style="color:#0056b3;">👨 건우 별점</label>
+  <input type="number" id="starRating" min="1.0" max="5.0" step="0.1" value="5.0" required style="margin-right: 15px;">
+  
+  <label style="color:#d81b60;">👩 파트너 별점</label>
+  <input type="number" id="starRating2" min="1.0" max="5.0" step="0.1" value="5.0" required>
+</div>
+
 <div class="form-row">
-<label>별점 (1~5)</label>
-<input type="number" id="starRating" min="1.0" max="5.0" step="0.1" value="5.0" required>
+<label style="color:#0056b3;">👨 건우 리뷰</label> <input type="text" id="reviewComment" placeholder="건우의 한줄평" required>
 </div>
 <div class="form-row">
-<label>한줄평</label> <input type="text" id="reviewComment" required>
+<label style="color:#d81b60;">👩 파트너 리뷰</label> <input type="text" id="reviewComment2" placeholder="파트너의 한줄평" required>
 </div>
+
 <div class="form-row">
     <label>재방문 의사</label>
     <select id="visitAgain" class="form-input" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
@@ -229,7 +238,6 @@ input[type="password"] { width: 100px; }
         <div id="map" style="width:100%; height:280px; background-color: #ffe6e6;"></div>    
     </div>
     
-    <!-- 돌림판 버튼을 mapWrapper 바깥으로 꺼냄! -->
     <button class="btn-roulette" onclick="startRoulette()">🎰 오늘 뭐 먹지? (돌림판)</button>
 </div>
 <div class="list-container" id="restaurantList">
@@ -379,14 +387,14 @@ async function fetchRestaurants() {
     cardDiv.className = 'restaurant-card';
     
     const naverMapUrl = `https://map.naver.com/v5/search/${encodeURIComponent(item.store_name)}`;
-    
-    // 음식 카테고리가 사라졌으므로, 이미지가 없을 때는 대체 텍스트 표시
     const thumbContent = item.image_url 
         ? `<img src="${item.image_url}" style="width:100%; height:100%; object-fit:cover; display:block;">` 
         : '<span style="font-size:10px; color:#aaa;">이미지<br>없음</span>';
 
-    // 콜키지 값이 Y나 N일 때만 태그를 렌더링
     const corkageTag = item.corkage ? `<span class="category-tag">🍷 콜키지: ${item.corkage}</span>` : '';
+    
+    // DB에서 등록자(registrar) 정보 가져와서 뱃지 띄워주기
+    const registrarBadge = item.registrar ? `<span style="font-size: 11px; background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: auto; margin-right: 5px;">등록: ${item.registrar}</span>` : '';
 
     cardDiv.innerHTML = `
       <div class="thumb">${thumbContent}</div>
@@ -394,12 +402,22 @@ async function fetchRestaurants() {
           <div class="title-row">
               <span class="title" onclick="focusMarker('${item.id}')">${item.store_name}</span>
               ${corkageTag}
-              <span class="stars">★ ${item.star_rating}</span>
               <span style="font-size: 12px; background: #eef2f7; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">${item.visit_again || ''}</span>
-              <button onclick="deleteCard('${item.id}', this)" style="margin-left: auto; background: #ffeeee; border: 1px solid #ff9999; color: #cc0000; font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 3px;">삭제</button>
+              ${registrarBadge}
+              <button onclick="deleteCard('${item.id}', this)" style="background: #ffeeee; border: 1px solid #ff9999; color: #cc0000; font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 3px;">삭제</button>
           </div>
           <div class="address-text">📍 ${item.address || '주소 정보 없음'}</div>
-          <div class="review-text">${item.review_comment}</div>
+          
+          <div class="stars">
+             <span style="color:#0056b3;">👨 건우 ★ ${item.star_rating}</span> &nbsp;|&nbsp; 
+             <span style="color:#d81b60;">👩 파트너 ★ ${item.star_rating_2 || '평가전'}</span>
+          </div>
+          
+          <div class="review-box">
+             <div class="review-text"><strong style="color:#0056b3;">👨 건우:</strong> ${item.review_comment}</div>
+             <div class="review-text"><strong style="color:#d81b60;">👩 파트너:</strong> ${item.review_comment_2 || '리뷰가 없습니다.'}</div>
+          </div>
+          
           <a href="${naverMapUrl}" target="_blank" class="map-link">▶ 네이버 지도에서 보기</a>
       </div>
     `;
@@ -494,9 +512,10 @@ window.focusMarker = function(id) {
 };
 
 window.deleteCard = async function(id, buttonElement) {
-  const passwordInput = prompt('삭제하려면 관리자 암호를 입력하세요:');
+  const passwordInput = prompt('삭제하려면 권한 암호를 입력하세요 (g 또는 h의 암호):');
   
-  if (passwordInput === '1234') {
+  // 1234 또는 2345면 삭제 허용
+  if (passwordInput === '1234' || passwordInput === '2345') {
     const { error } = await supabaseClient.from('restaurants').delete().eq('id', id);
     if (error) return alert('삭제 중 오류가 발생했습니다: ' + error.message);
     
@@ -514,16 +533,30 @@ const reviewForm = document.getElementById('reviewForm');
 reviewForm.addEventListener('submit', async function(e) {
   e.preventDefault();
 
+  const adminPassword = document.getElementById('adminPassword').value;
+  
+  // 비밀번호에 따른 등록자 판별
+  let currentRegistrar = '';
+  if (adminPassword === '1234') {
+      currentRegistrar = 'g';
+  } else if (adminPassword === '2345') {
+      currentRegistrar = 'h';
+  } else {
+      return alert('등록 권한이 없습니다! (비밀번호 오류)');
+  }
+
   const storeName = document.getElementById('storeName').value;
   const storeAddress = document.getElementById('storeAddress').value;
-  const corkage = document.getElementById('corkage').value; // 새로 추가된 콜키지 값 가져오기
+  const corkage = document.getElementById('corkage').value; 
+  
   const starRating = document.getElementById('starRating').value;
+  const starRating2 = document.getElementById('starRating2').value;
   const reviewComment = document.getElementById('reviewComment').value;
+  const reviewComment2 = document.getElementById('reviewComment2').value;
+  
   const visitAgain = document.getElementById('visitAgain').value;
-  const adminPassword = document.getElementById('adminPassword').value;
   const submitBtn = document.getElementById('submitBtn');
 
-  if (adminPassword !== '1234') return alert('관리자 암호가 틀렸습니다!');
   if (!storeAddress) return alert('상호명을 검색하고 목록에서 가게를 선택해 주세요!');
 
   submitBtn.innerText = '사진 박제 중...';
@@ -541,13 +574,15 @@ reviewForm.addEventListener('submit', async function(e) {
     console.error('이미지 박제 실패 (텍스트로 대체됩니다):', err);
   }
 
-  // Supabase에 데이터 인서트 시 corkage 항목 포함 (food_category 삭제)
+  // Supabase에 데이터 인서트 시 registrar(등록자) 정보도 같이 보냄
   const { data, error } = await supabaseClient
     .from('restaurants')
     .insert([{
         store_name: storeName, address: storeAddress, corkage: corkage,
-        star_rating: starRating, review_comment: reviewComment, visit_again: visitAgain,
-        image_url: fetchedImageUrl
+        star_rating: starRating, star_rating_2: starRating2, 
+        review_comment: reviewComment, review_comment_2: reviewComment2, 
+        visit_again: visitAgain, image_url: fetchedImageUrl,
+        registrar: currentRegistrar
     }]).select();
 
   if (error) {
@@ -557,11 +592,12 @@ reviewForm.addEventListener('submit', async function(e) {
     return;
   }
 
-  alert('맛집 정보와 사진이 완벽하게 박제되었습니다! 🎉');
+  alert(`맛집 정보와 2인 평가가 완벽하게 박제되었습니다! (등록자: ${currentRegistrar}) 🎉`);
   
   reviewForm.reset();
   document.getElementById('searchResultRow').style.display = 'none';
   document.getElementById('starRating').value = '5.0';
+  document.getElementById('starRating2').value = '5.0';
   document.getElementById('adminPassword').value = ''; 
   submitBtn.innerText = '등록하기';
   submitBtn.disabled = false;
@@ -592,7 +628,6 @@ window.startRoulette = function() {
             btn.innerText = originalText;
             btn.disabled = false;
             
-            // 음식 카테고리 텍스트 대신 깔끔하게 메시지 변경
             alert(`🎉 오늘 갈 곳은 여기다!\n\n👉 [ ${finalWinner.store_name} ]\n맛있게 먹고 오자!`);
             
             focusMarker(finalWinner.id);
